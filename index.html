@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TDUBR - Simulador Sistema Global</title>
+    <style>
+        * { 
+            box-sizing: border-box; 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+        }
+
+        body { 
+            background-color: #f0f2f5; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            flex-direction: column; 
+            user-select: none; 
+        }
+
+        /* Oculta de forma forçada os botões nativos de arquivo que vazaram */
+        .inputs-escondidos-tse, 
+        #upload-foto, 
+        #upload-som { 
+            display: none !important; 
+            opacity: 0 !important; 
+            visibility: hidden !important; 
+            position: absolute !important;
+            width: 0 !important;
+            height: 0 !important;
+            z-index: -9999 !important;
+        }
+
+        /* DESIGN DO MENU INICIAL */
+        .menu-principal {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .menu-principal h1 {
+            color: #004b82;
+            font-size: 26px;
+            margin-bottom: 30px;
+        }
+
+        .botoes-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .btn-menu {
+            padding: 16px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn-menu.cinza { background-color: #a6a6a6; color: #ffffff; }
+        .btn-menu.verde { background-color: #00733b; color: #ffffff; }
+        .btn-menu.verde:hover { background-color: #00592e; }
+        .btn-menu.admin { background-color: #004b82; color: white; }
+        .btn-menu.admin:hover { background-color: #00365d; }
+        .btn-menu:active { transform: scale(0.98); }
+
+        /* MENSAGENS EM VERMELHO DE ERRO NA TELA */
+        .mensagem-erro-tela {
+            display: none;
+            color: #dc3545;
+            font-weight: bold;
+            font-size: 14px;
+            margin-top: 20px;
+            background-color: #f8d7da;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #f5c6cb;
+            animation: pisca-alerta 0.5s ease-in-out 4;
+        }
+
+        .erro-voto-incompleto {
+            display: none;
+            color: #a71d2a;
+            font-weight: bold;
+            font-size: 11px;
+            margin-top: 15px;
+            background-color: #fdd8db;
+            padding: 6px;
+            border-radius: 3px;
+            border: 1px solid #fbc4c8;
+            text-align: center;
+            width: fit-content;
+        }
+
+        @keyframes pisca-alerta {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* PAINEL MODAL ADMIN */
+        .modal-upload {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.75);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-conteudo {
+            background-color: #fff; padding: 35px; border-radius: 8px;
+            max-width: 460px; width: 100%; text-align: center; box-shadow: 0 4px 25px rgba(0,0,0,0.3);
+        }
+
+        .modal-conteudo h2 { color: #cc0000; margin-bottom: 20px; font-size: 22px; letter-spacing: 1px; }
+        .instrucao-painel { font-size: 14px; color: #666; margin-bottom: 20px; }
+        .upload-section { margin-bottom: 20px; text-align: left; background: #f8f9fa; padding: 12px; border-radius: 6px; }
+        .upload-section p { font-size: 13px; font-weight: bold; margin-bottom: 8px; }
+
+        .btn-modal-action { color: white; border: none; padding: 8px 16px; font-size: 13px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+        .foto-btn { background-color: #004b82; }
+        .som-btn { background-color: #555; }
+        .status-upload { font-size: 12px; font-weight: bold; color: #006633; margin-top: 6px; display: none; }
+
+        .btn-modal-confirm { background-color: #00733b; color: white; border: none; padding: 14px; width: 100%; font-size: 15px; font-weight: bold; border-radius: 4px; cursor: pointer; text-transform: uppercase; margin-bottom: 10px; }
+        .btn-modal-fechar { background-color: #eee; color: #333; border: none; padding: 10px; width: 100%; font-size: 13px; border-radius: 4px; cursor: pointer; }
+        /* ELEMENTOS INTERNOS DA URNA */
+        .conteudo-urna-sistema { display: none; flex-direction: column; align-items: center; }
+        .aviso-teste { 
+            background-color: #fff3cd; color: #856404; padding: 12px; border: 1px solid #ffeeba;
+            border-radius: 4px; margin-bottom: 20px; font-weight: bold; font-size: 14px; text-align: center; width: 100%; max-width: 710px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .btn-voltar-menu-urna { background-color: #dc3545; color: white; border: none; padding: 5px 12px; font-size: 12px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+
+        .urna-hub { background-color: #dbdbdb; padding: 25px; border-radius: 8px; display: flex; gap: 20px; border: 3px solid #b5b5b5; }
+        .moldura-monitor { background-color: #222; padding: 12px; border-radius: 4px; }
+        .monitor { background-color: #e4ebd3; width: 440px; height: 300px; border: 2px solid #555; padding: 15px; position: relative; }
+        .painel-flex { display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
+
+        .tarja-treinamento { font-size: 11px; font-weight: bold; text-align: center; color: #444; width: 100%; margin-bottom: 5px; }
+        .titulo-voto { font-size: 12px; font-weight: bold; visibility: hidden; }
+        .cargo-nome { font-size: 20px; font-weight: bold; margin-top: 5px; text-transform: uppercase; }
+        .container-caixas { margin-top: 10px; }
+
+        .caixa-digito { width: 32px; height: 42px; border: 2px solid #000; display: inline-flex; justify-content: center; align-items: center; font-size: 26px; font-weight: bold; background-color: transparent; margin-right: 4px; vertical-align: middle; }
+        .piscar { animation: cursor-efeito 0.7s infinite; }
+        @keyframes cursor-efeito { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
+
+        .pisca-suave { animation: opacidade-suave 1.2s infinite ease-in-out; }
+        @keyframes opacidade-suave { 0% { opacity: 0.1; } 50% { opacity: 1; } 100% { opacity: 0.1; } }
+
+        .quadro-foto { position: absolute; right: 15px; top: 30px; border: 2px solid #000; background-color: #fff; width: 100px; height: 125px; display: none; text-align: center; }
+        .quadro-foto img { width: 100%; height: calc(100% - 18px); object-fit: cover; display: block; }
+        .legenda-foto { font-size: 10px; font-weight: bold; border-top: 1px solid #000; background-color: #fff; padding: 1px 0; }
+
+        .ficha-dados { display: none; margin-top: 15px; font-size: 14px; line-height: 1.5; }
+        .instrucoes-rodape { font-size: 11px; border-top: 1px solid #000; padding-top: 5px; display: none; }
+
+        /* TELA DE GRAVAÇÃO COM BARRA VERDE */
+        .tela-gravando { display: none; width: 100%; height: 100%; flex-direction: column; justify-content: center; align-items: center; position: absolute; top: 0; left: 0; background-color: #e4ebd3; z-index: 10; }
+        .progresso-container { width: 280px; height: 16px; border: 1.5px solid #333; background-color: #fff; overflow: hidden; margin-top: -20px; }
+        .progresso-barra { width: 0%; height: 100%; background-color: #006633; transition: width 0.05s linear; }
+        .texto-gravando { font-size: 15px; font-weight: bold; color: #000; margin-top: 12px; }
+
+        /* TECLADO */
+        .painel-teclas { background-color: #404040; width: 250px; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .teclado-marca { color: #fff; text-align: center; font-size: 13px; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; }
+        .teclado-numerico { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; justify-items: center; }
+        .tecla-preta { background-color: #111; color: #fff; border: none; width: 55px; height: 45px; font-size: 18px; font-weight: bold; border-radius: 4px; cursor: pointer; box-shadow: 0 3px 0 #000; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; padding-top: 2px; }
+        .tecla-preta:active { transform: translateY(2px); box-shadow: 0 1px 0 #000; }
+        .braille { font-size: 11px; color: #aaa; margin-top: -2px; font-weight: normal; }
+        #tecla-cinco { position: relative; }
+        .relevo-tatil { position: absolute; width: 4px; height: 4px; background-color: #555; border-radius: 50%; top: 40%; left: 50%; transform: translate(-50%, -50%); }
+
+        .teclado-controles { display: flex; gap: 6px; margin-top: 15px; }
+        .btn-controle { flex: 1; height: 45px; font-size: 10px; font-weight: bold; text-transform: uppercase; border: none; border-radius: 2px; cursor: pointer; box-shadow: 0 2px 0 rgba(0,0,0,0.2); }
+        .btn-controle:active { transform: translateY(1px); box-shadow: none; }
+        .c-branco { background-color: #fff; color: #000; }
+        .c-corrige { background-color: #f05a28; color: #fff; }
+        .c-confirma { background-color: #006633; color: #fff; height: 52px; margin-top: -7px; font-size: 11px; }
+
+        .mensagem-fim { display: none; font-size: 85px; font-weight: bold; justify-content: center; align-items: center; width: 100%; height: 100%; color: #000; }
+    </style>
+</head>
+<body>
+
+    <div class="menu-principal" id="tela-menu">
+        <h1>Painel do Eleitor - TDUBR</h1>
+        <div class="botoes-menu">
+            <button id="btn-treinar" class="btn-menu cinza" onclick="tentarEntrarNaUrna()">Treinar pra votar no Isac</button>
+            <button class="btn-menu admin" onclick="abrirPainelAdmin()">TDUBR PANEL</button>
+        </div>
+        <div id="erro-menu" class="mensagem-erro-tela">O TDUBR Não permitiu ainda treinarem na urna.</div>
+    </div>
+
+    <div class="modal-upload" id="modal-admin" style="display: none;">
+        <div class="modal-conteudo">
+            <h2>TDUBR ADMIN PANEL</h2>
+            <p class="instrucao-painel">Para permitir o acesso global, você deve carregar as mídias oficiais obrigatórias:</p>
+            
+            <div class="upload-section">
+                <p>1. Foto Oficial do Prefeito (JOSÉ ISAC):</p>
+                <button class="btn-modal-action foto-btn" onclick="dispararUploadFoto()">Escolher Foto</button>
+                <div id="status-foto" class="status-upload">IMAGEM SELECIONADA COM SUCESSO</div>
+            </div>
+            
+            <div class="upload-section">
+                <p>2. Som de Confirmação Oficial (FIM):</p>
+                <button class="btn-modal-action som-btn" onclick="dispararUploadSom()">Escolher Áudio</button>
+                <div id="status-som" class="status-upload">ÁUDIO COLOCADO COM SUCESSO</div>
+            </div>
+            
+            <button class="btn-modal-confirm" id="btn-permitir-global" onclick="ativarLiberacaoGlobal()">Liberar Sistema Globalmente 🔓</button>
+            <button class="btn-modal-fechar" onclick="fecharPainelAdmin()">Voltar ao Menu</button>
+        </div>
+    </div>
+
+    <div class="inputs-escondidos-tse">
+        <input type="file" id="upload-foto" accept="image/*" onchange="carregarImagem(event)">
+        <input type="file" id="upload-som" accept="audio/*" onchange="carregarAudio(event)">
+    </div>
+
+    <div class="conteudo-urna-sistema" id="urna-sistema">
+        <div class="aviso-teste">
+            <span>SISTEMA LIBERADO GLOBALMENTE POR TDUBR PANEL. Digite 22 e confirme!</span>
+            <button class="btn-voltar-menu-urna" onclick="voltarParaOMenu()">Sair da Urna</button>
+        </div>
+
+        <div class="urna-hub">
+            <div class="moldura-monitor">
+                <div class="monitor">
+                    
+                    <div class="tarja-treinamento" id="tag-treinamento">TREINAMENTO</div>
+                    <div class="mensagem-fim" id="fim-visor">FIM</div>
+                    
+                    <div class="tela-gravando" id="tela-gravando">
+                        <div class="progresso-container">
+                            <div class="progresso-barra" id="progresso-barra"></div>
+                        </div>
+                        <div class="texto-gravando">Gravando</div>
+                    </div>
+                    
+                    <div id="painel-voto" class="painel-flex">
+                        <div>
+                            <div id="titulo-voto" class="titulo-voto">SEU VOTO VAI PARA</div>
+                            <div id="cargo-nome" class="cargo-nome">Prefeito</div>
+                            
+                            <div class="container-caixas">
+                                <span>Número:</span>
+                                <div class="caixa-digito piscar" id="slot1"></div>
+                                <div class="caixa-digito" id="slot2"></div>
+                            </div>
+                            
+                            <div class="ficha-dados" id="ficha-candidato">
+                                <p>Nome: <strong id="candidato-nome">JOSÉ ISAC</strong></p>
+                                <p>Partido: <strong id="candidato-partido">PL</strong></p>
+                            </div>
+                            
+                            <div id="erro-urna" class="erro-voto-incompleto">DIGITE OS 2 NÚMEROS OU VOTE EM BRANCO!</div>
+                        </div>
+                        
+                        <div class="quadro-foto" id="foto-visor">
+                            <img id="foto-candidato-dinamica" src="" alt="Candidato">
+                            <div class="legenda-foto">PREFEITO</div>
+                        </div>
+                        
+                        <div id="instrucoes" class="instrucoes-rodape">
+                            Aperte a tecla:<br>
+                            <strong>VERDE</strong> para <strong>CONFIRMAR</strong><br>
+            <!-- Lado Direito: Teclado Físico simulado com Acessibilidade -->
+            <div class="painel-teclas">
+                <div class="teclado-marca">Justiça Eleitoral</div>
+                
+                <div class="teclado-numerico">
+                    <button class="tecla-preta" onclick="digitar('1')" aria-label="Número 1">1<span class="braille">⠂</span></button>
+                    <button class="tecla-preta" onclick="digitar('2')" aria-label="Número 2">2<span class="braille">⠆</span></button>
+                    <button class="tecla-preta" onclick="digitar('3')" aria-label="Número 3">3<span class="braille">⠒</span></button>
+                    <button class="tecla-preta" onclick="digitar('4')" aria-label="Número 4">4<span class="braille">⠲</span></button>
+                    <button class="tecla-preta" id="tecla-cinco" onclick="digitar('5')" aria-label="Número 5">5<span class="braille">⠨</span><div class="relevo-tatil"></div></button>
+                    <button class="tecla-preta" onclick="digitar('6')" aria-label="Número 6">6<span class="braille">⠖</span></button>
+                    <button class="tecla-preta" onclick="digitar('7')" aria-label="Número 7">7<span class="braille">⠦</span></button>
+                    <button class="tecla-preta" onclick="digitar('8')" aria-label="Número 8">8<span class="braille">⠲</span></button>
+                    <button class="tecla-preta" onclick="digitar('9')" aria-label="Número 9">9<span class="braille">⠔</span></button>
+                    <div></div>
+                    <button class="tecla-preta" onclick="digitar('0')" aria-label="Número 0">0<span class="braille">⠴</span></button>
+                    <div></div>
+                </div>
+                
+                <div class="teclado-controles">
+                    <button class="btn-controle c-branco" onclick="votarBranco()">Branco</button>
+                    <button class="btn-controle c-corrige" onclick="limparSelecao()">Corrige</button>
+                    <button class="btn-controle c-confirma" onclick="executarConfirmacao()">Confirma</button>
+                </div>
+            </div>
+        </div>
+    </div>
+        function carregarAudio(event) {
+            const input = event.target;
+            if (input.files && input.files[0]) {
+                const urlAudio = URL.createObjectURL(input.files[0]);
+                audioUrna = new Audio(urlAudio);
+                audioUrna.load(); 
+                
+                const leitorSom = new FileReader();
+                leitorSom.onload = function(e) {
+                    localStorage.setItem("cache_som_fim", e.target.result);
+                }
+                leitorSom.readAsDataURL(input.files[0]);
+
+                somCarregado = true;
+                document.getElementById('status-som').style.display = 'block'; 
+                verificarRequisitosPainel();
+            }
+        }
+
+        function verificarRequisitosPainel() {
+            if (fotoCarregada && somCarregado) {
+                document.getElementById('btn-permitir-global').style.display = 'block';
+            }
+        }
+
+        function activarLiberacaoGlobal() {
+            globalPermitido = true;
+            localStorage.setItem("tdubr_permissao", "true");
+            atualizarBotaoMenu();
+            fecharPainelAdmin();
+            alert("Sistema liberado globalmente com sucesso por TDUBr!");
+        }
+
+        function digitar(n) {
+            if (sequenciaNum.length < 2 && !estadoBranco) {
+                sequenciaNum += n;
+                atualizarInterface();
+            }
+        }
+
+        function atualizarInterface() {
+            let s1 = document.getElementById('slot1');
+            let s2 = document.getElementById('slot2');
+            document.getElementById('erro-urna').style.display = 'none';
+            
+            if (sequenciaNum.length === 0) {
+                s1.innerHTML = ""; s1.classList.add('piscar');
+                s2.innerHTML = ""; s2.classList.remove('piscar');
+            } else if (sequenciaNum.length === 1) {
+                s1.innerHTML = sequenciaNum; s1.classList.remove('piscar');
+                s2.innerHTML = ""; s2.classList.add('piscar');
+                document.getElementById('titulo-voto').style.visibility = 'visible';
+            } else if (sequenciaNum.length === 2) {
+                s2.innerHTML = sequenciaNum.substring(1, 2); s2.classList.remove('piscar');
+                document.getElementById('instrucoes').style.display = 'block';
+                
+                if (sequenciaNum === "22") {
+                    document.getElementById('ficha-candidato').innerHTML = `<p>Nome: <strong>JOSÉ ISAC</strong></p><p>Partido: <strong>PL</strong></p>`;
+                    document.getElementById('ficha-candidato').style.display = 'block';
+                    document.getElementById('foto-visor').style.display = 'block';
+                } else {
+                    document.getElementById('ficha-candidato').innerHTML = "<br><strong class='pisca-suave' style='font-size:24px; color:#000; display:block;'>VOTO NULO</strong>";
+                    document.getElementById('ficha-candidato').style.display = 'block';
+                }
+            }
+        }
+
+        function limparSelecao() {
+            sequenciaNum = "";
+            estadoBranco = false;
+            document.getElementById('titulo-voto').style.visibility = 'hidden';
+            document.getElementById('ficha-candidato').style.display = 'none';
+            document.getElementById('ficha-candidato').innerHTML = `<p>Nome: <strong id="candidato-nome">JOSÉ ISAC</strong></p><p>Partido: <strong id="candidato-partido">PL</strong></p>`;
+            document.getElementById('foto-visor').style.display = 'none';
+            document.getElementById('instrucoes').style.display = 'none';
+            document.getElementById('slot1').style.display = 'inline-flex';
+            document.getElementById('slot2').style.display = 'inline-flex';
+            document.getElementById('erro-urna').style.display = 'none';
+            atualizarInterface();
+        }
+
+        function votarBranco() {
+            if (sequenciaNum === "") {
+                estadoBranco = true;
+                document.getElementById('erro-urna').style.display = 'none';
+                document.getElementById('titulo-voto').style.visibility = 'visible';
+                document.getElementById('slot1').style.display = 'none';
+                document.getElementById('slot2').style.display = 'none';
+                document.getElementById('ficha-candidato').innerHTML = "<br><strong class='pisca-suave' style='font-size:24px; color:#000; display:block;'>VOTO EM BRANCO</strong>";
+                document.getElementById('ficha-candidato').style.display = 'block';
+                document.getElementById('instrucoes').style.display = 'block';
+            }
+        }
+
+        function executarConfirmacao() {
+            if (document.getElementById('urna-sistema').style.display === 'none') return;
+
+            if (sequenciaNum.length < 2 && !estadoBranco) {
+                try {
+                    let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    let osc = audioCtx.createOscillator();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(220, audioCtx.currentTime); 
+                    osc.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.2);
+                } catch(e) { console.log(e); }
+                
+                document.getElementById('erro-urna').style.display = 'block';
+                return; 
+            }
+
+            document.getElementById('painel-voto').style.display = 'none';
+            const telaGravando = document.getElementById('tela-gravando');
+            const barra = document.getElementById('progresso-barra');
+            telaGravando.style.display = 'flex';
+            barra.style.width = '0%';
+
+            let progresso = 0;
+            let intervaloBarra = setInterval(() => {
+                progresso += 4;
+                barra.style.width = progresso + '%';
+                
+                if (progresso >= 100) {
+                    clearInterval(intervaloBarra);
+                    
+                    if (audioUrna) {
+                        audioUrna.currentTime = 0;
+                        audioUrna.play().catch(e => console.log("Erro ao reproduzir áudio:", e));
+                    }
+
+                    telaGravando.style.display = 'none';
+                    document.getElementById('tag-treinamento').style.display = 'none';
+                    document.getElementById('fim-visor').style.display = 'flex';
+                    
+                    setTimeout(() => {
+                        document.getElementById('painel-voto').style.display = 'flex';
+                        document.getElementById('tag-treinamento').style.display = 'block';
+                        document.getElementById('fim-visor').style.display = 'none';
+                        limparSelecao();
+                    }, 3000);
+                }
+            }, 50); 
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (document.getElementById('urna-sistema').style.display === 'none') return;
+
+            const tecla = event.key;
+
+            if (tecla >= '0' && tecla <= '9') {
+                digitar(tecla);
+            } 
+            else if (tecla === 'Enter') {
+                executarConfirmacao();
+            } 
+            else if (tecla === 'Backspace' || tecla === 'Delete') {
+                limparSelecao();
+            } 
+            else if (tecla === ' ') {
+                event.preventDefault(); 
+                votarBranco();
+            }
+        });
+    </script>
+</body>
+</html>
